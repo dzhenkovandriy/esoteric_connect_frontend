@@ -42,5 +42,12 @@
       <button>View Profile</button>
     </div>
   </section>
+
+  <script>
+    fetch("https://esoteric-connect-backend.onrender.com/api/masters")
+      .then(res => res.json())
+      .then(data => { /* …карточки… */ })
+      .catch(console.error);
+    </script>    
 </body>
 </html>
