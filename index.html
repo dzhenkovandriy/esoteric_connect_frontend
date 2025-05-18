@@ -10,6 +10,8 @@
   <header>
     <h1>Esoteric Connect</h1>
     <p>Find your guide — Astrologers, Tarot Readers, Numerologists and more</p>
+    <!-- 1) Кнопка регистрации рядом с заголовком -->
+    <button id="openReg">Register</button>
   </header>
 
   <section class="filters">
@@ -29,25 +31,57 @@
       <p>Astrologer</p>
       <button>View Profile</button>
     </div>
-    <div class="card">
-      <img src="https://randomuser.me/api/portraits/men/45.jpg" alt="Master">
-      <h3>Maxim Aura</h3>
-      <p>Tarot Reader</p>
-      <button>View Profile</button>
-    </div>
-    <div class="card">
-      <img src="https://randomuser.me/api/portraits/women/68.jpg" alt="Master">
-      <h3>Natalie Numbers</h3>
-      <p>Numerologist</p>
-      <button>View Profile</button>
-    </div>
+    <!-- … остальные карточки … -->
   </section>
 
+  <!-- 2) Скрытая модалка регистрации -->
+  <div id="regModal" class="modal" style="display:none;">
+    <form id="regForm" class="modal-content">
+      <h2>Create account</h2>
+      <input name="email"    type="email"    placeholder="Email"   required>
+      <input name="password" type="password" placeholder="Password" required>
+      <select name="role">
+        <option value="client">Client</option>
+        <option value="master">Master</option>
+      </select>
+      <button type="submit">Sign Up</button>
+    </form>
+  </div>
+
+  <!-- 3) Ваш существующий скрипт загрузки карточек -->
   <script>
     fetch("https://esoteric-connect-backend.onrender.com/api/masters")
       .then(res => res.json())
-      .then(data => { /* …карточки… */ })
+      .then(data => { /* …рисуем карточки… */ })
       .catch(console.error);
-    </script>    
+  </script>
+
+  <!-- 4) Скрипт для открытия модалки и регистрации -->
+  <script>
+    // открыть модалку
+    document.getElementById("openReg").onclick = () => {
+      document.getElementById("regModal").style.display = "block";
+    };
+
+    // отправка формы регистрации
+    document.getElementById("regForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      const res  = await fetch("https://esoteric-connect-backend.onrender.com/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+      if (res.ok) {
+        alert("Registered!");
+        e.target.reset();
+        document.getElementById("regModal").style.display = "none";
+      } else {
+        const err = await res.json();
+        alert("Error: " + err.error);
+      }
+    };
+  </script>
 </body>
 </html>
