@@ -1,118 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Esoteric Connect</title>
-
-  <!-- базовый внешний вид -->
-  <link rel="stylesheet" href="style.css" />
-
-  <!-- минимальный стиль модального окна -->
-  <style>
-    .modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center}
-    .modal-content{background:#fff;padding:2rem;border-radius:12px;min-width:260px;display:flex;flex-direction:column;gap:.7rem}
-    .modal-content input,.modal-content select{padding:.5rem;border:1px solid #ccc;border-radius:6px}
-    .close{position:absolute;top:8px;right:12px;font-size:1.4rem;cursor:pointer;color:#666}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Esoteric Connect</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center}
+.modal-content{background:#fff;padding:2rem;border-radius:12px;min-width:260px;display:flex;flex-direction:column;gap:.7rem}
+.modal-content input,.modal-content select{padding:.5rem;border:1px solid #ccc;border-radius:6px}
+.close{position:absolute;top:8px;right:12px;font-size:1.4rem;cursor:pointer;color:#666}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Esoteric Connect</h1>
-    <p>Find your guide — Astrologers, Tarot Readers, Numerologists and more</p>
-    <button id="openReg">Register</button>
-  </header>
+<header>
+  <h1>Esoteric Connect</h1>
+  <p>Find your guide — Astrologers, Tarot Readers, Numerologists and more</p>
+  <button id="openReg">Register</button>
+</header>
 
-  <section class="filters">
-    <button data-filter="all">All</button>
-    <button data-filter="Astrologer">Astrologers</button>
-    <button data-filter="Tarot Reader">Tarot Readers</button>
-    <button data-filter="Numerologist">Numerologists</button>
-  </section>
+<section class="filters">
+  <button data-filter="all">All</button>
+  <button data-filter="Astrologer">Astrologers</button>
+  <button data-filter="Tarot Reader">Tarot Readers</button>
+  <button data-filter="Numerologist">Numerologists</button>
+</section>
 
-  <section class="card-grid"><!-- карточки появятся здесь --></section>
+<section class="card-grid"></section>
 
-  <!-- ▸▸ регистрация -->
-  <div id="regModal" class="modal">
-    <form id="regForm" class="modal-content">
-      <span class="close" id="closeReg">&times;</span>
-      <h2>Create account</h2>
+<!-- ───── регистрация ───── -->
+<div id="regModal" class="modal">
+  <form id="regForm" class="modal-content">
+    <span class="close" id="closeReg">&times;</span>
+    <h2>Create account</h2>
 
-      <input name="name"        type="text"     placeholder="Your name"       required>
-      <input name="email"       type="email"    placeholder="Email"           required>
-      <input name="password"    type="password" placeholder="Password"        required>
-      <select name="role">
-        <option value="client">Client</option>
-        <option value="master">Master</option>
-      </select>
+    <input name="name"        type="text"     placeholder="Your name" required>
+    <input name="email"       type="email"    placeholder="Email"     required>
+    <input name="password"    type="password" placeholder="Password"  required>
 
-      <!-- необязательные поля только для мастеров -->
-      <input name="specialty"   type="text"     placeholder="Specialty (e.g. Tarot Reader)">
-      <input name="photo"       type="url"      placeholder="Photo URL">
+    <select name="role">
+      <option value="client">Client</option>
+      <option value="master">Master</option>
+    </select>
 
-      <button type="submit">Sign up</button>
-    </form>
-  </div>
+    <input name="specialty" type="text" placeholder="Specialty (for masters)">
+    <input name="photoFile" type="file" accept="image/*">
 
-  <script>
-  /* ---------- helpers ---------- */
-  const API = "https://esoteric-connect-backend.onrender.com";
-  const grid = document.querySelector(".card-grid");
+    <button type="submit">Sign up</button>
+  </form>
+</div>
 
-  /* ---------- загрузка мастеров ---------- */
-  async function loadMasters(filter = "all") {
-    grid.innerHTML = "Loading…";
-    const res   = await fetch(`${API}/api/masters`);
-    const data  = await res.json();
+<script>
+const API = "https://esoteric-connect-backend.onrender.com";
+const grid = document.querySelector(".card-grid");
 
-    const list  = filter === "all" ? data
-                : data.filter(m => m.specialty === filter);
+/* ─── загрузка мастеров ─── */
+async function loadMasters(filter="all"){
+  grid.innerHTML="Loading…";
+  const res  = await fetch(API+"/api/masters");
+  const data = await res.json();
+  const list = filter==="all"?data:data.filter(m=>m.specialty===filter);
+  grid.innerHTML="";
+  if(!list.length){grid.textContent="Nothing found";return;}
+  list.forEach(m=>grid.insertAdjacentHTML("beforeend",`
+    <div class="card">
+      <img src="${m.photo}" alt="Master">
+      <h3>${m.name}</h3>
+      <p>${m.specialty}</p>
+    </div>`));
+}
+window.addEventListener("DOMContentLoaded",()=>loadMasters());
 
-    grid.innerHTML = "";
-    if (!list.length) { grid.textContent = "Nothing found"; return; }
+/* ─── фильтры ─── */
+document.querySelectorAll(".filters button").forEach(btn=>{
+  btn.onclick=()=>loadMasters(btn.dataset.filter);
+});
 
-    list.forEach(m => grid.insertAdjacentHTML("beforeend", `
-      <div class="card">
-        <img src="${m.photo}" alt="Master">
-        <h3>${m.name}</h3>
-        <p>${m.specialty}</p>
-      </div>`));
+/* ─── модалка ─── */
+const regModal=document.getElementById("regModal");
+document.getElementById("openReg").onclick=()=>regModal.style.display="flex";
+document.getElementById("closeReg").onclick=()=>regModal.style.display="none";
+window.onclick=e=>{if(e.target===regModal)regModal.style.display="none";};
+
+/* ─── регистрация ─── */
+document.getElementById("regForm").onsubmit=async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+
+  /* 1) если выбран файл, загружаем его */
+  let photoURL="";
+  const file=fd.get("photoFile");
+  if(file && file.size){
+    const up=new FormData(); up.append("file",file);
+    const upRes=await fetch(API+"/api/upload",{method:"POST",body:up,credentials:"include"});
+    if(upRes.ok) photoURL=(await upRes.json()).url;
+    else {alert("Photo upload failed");return;}
   }
-  window.addEventListener("DOMContentLoaded", () => loadMasters());
 
-  /* ---------- фильтры ---------- */
-  document.querySelectorAll(".filters button").forEach(btn=>{
-    btn.onclick = ()=> loadMasters(btn.dataset.filter);
+  /* 2) собираем JSON и шлём регистрацию */
+  const json=Object.fromEntries(fd.entries());
+  delete json.photoFile;          // убираем бинарник
+  json.photo=photoURL;            // ссылка (может быть "")
+
+  const res=await fetch(API+"/api/register",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(json),
+    credentials:"include"
   });
-
-  /* ---------- модалка ---------- */
-  const regModal=document.getElementById("regModal");
-  document.getElementById("openReg").onclick = ()=> regModal.style.display="flex";
-  document.getElementById("closeReg").onclick = ()=> regModal.style.display="none";
-  window.onclick = e=>{ if(e.target===regModal) regModal.style.display="none"; };
-
-  /* ---------- отправка регистрации ---------- */
-  document.getElementById("regForm").onsubmit = async e => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target).entries());
-
-    const res = await fetch(`${API}/api/register`,{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify(data),
-      credentials:"include"
-    });
-
-    if(res.status===201){
-      alert("Registered!");
-      regModal.style.display="none";
-      e.target.reset();
-      loadMasters();           // перерисуем каталог
-    }else{
-      const err = await res.json();
-      alert("Error: "+ (err.error || res.statusText));
-    }
-  };
-  </script>
+  if(res.status===201){
+    alert("Registered!");
+    regModal.style.display="none";
+    e.target.reset();
+    loadMasters();
+  }else{
+    const err=await res.json();
+    alert("Error: "+err.error);
+  }
+};
+</script>
 </body>
 </html>
