@@ -10,6 +10,7 @@
 .modal-content{background:#fff;padding:2rem;border-radius:12px;min-width:260px;display:flex;flex-direction:column;gap:.7rem}
 .modal-content input,.modal-content select{padding:.5rem;border:1px solid #ccc;border-radius:6px}
 .close{position:absolute;top:8px;right:12px;font-size:1.4rem;cursor:pointer;color:#666}
+#cabinet{background:#f0f0ff;padding:1rem;border-radius:12px;margin:1rem;display:none}
 </style>
 </head>
 <body>
@@ -17,7 +18,10 @@
   <h1>Esoteric Connect</h1>
   <p>Find your guide — Astrologers, Tarot Readers, Numerologists and more</p>
   <button id="openReg">Register</button>
+  <button id="openLog">Login</button>
 </header>
+
+<section id="cabinet"></section>
 
 <section class="filters">
   <button data-filter="all">All</button>
@@ -28,95 +32,142 @@
 
 <section class="card-grid"></section>
 
-<!-- ───── регистрация ───── -->
+<!-- Register Modal -->
 <div id="regModal" class="modal">
   <form id="regForm" class="modal-content">
-    <span class="close" id="closeReg">&times;</span>
+    <span class="close" data-close="reg">&times;</span>
     <h2>Create account</h2>
-
-    <input name="name"        type="text"     placeholder="Your name" required>
-    <input name="email"       type="email"    placeholder="Email"     required>
-    <input name="password"    type="password" placeholder="Password"  required>
-
+    <input name="name"     type="text"     placeholder="Name" required>
+    <input name="email"    type="email"    placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
     <select name="role">
       <option value="client">Client</option>
       <option value="master">Master</option>
     </select>
-
     <input name="specialty" type="text" placeholder="Specialty (for masters)">
     <input name="photoFile" type="file" accept="image/*">
-
     <button type="submit">Sign up</button>
+  </form>
+</div>
+
+<!-- Login Modal -->
+<div id="logModal" class="modal">
+  <form id="logForm" class="modal-content">
+    <span class="close" data-close="log">&times;</span>
+    <h2>Login</h2>
+    <input name="email"    type="email"    placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button type="submit">Sign in</button>
   </form>
 </div>
 
 <script>
 const API = "https://esoteric-connect-backend.onrender.com";
 const grid = document.querySelector(".card-grid");
+let   currentUser = null;
 
-/* ─── загрузка мастеров ─── */
+/* ─── helpers ─── */
+const $ = sel => document.querySelector(sel);
+
+/* ─── modal helpers ─── */
+function openModal(id){ $(id).style.display="flex"; }
+function closeModal(id){ $(id).style.display="none"; }
+window.onclick = e=>{
+  if(e.target.classList.contains("modal")) e.target.style.display="none";
+};
+
+/* ─── cabinet render ─── */
+function renderCabinet(){
+  const box = $("#cabinet");
+  if(!currentUser){ box.style.display="none"; return; }
+  box.style.display="block";
+  box.innerHTML = `
+    <strong>Hello, ${currentUser.name||currentUser.email}</strong><br>
+    Role: ${currentUser.role}<br>
+    <button id="logoutBtn">Logout</button>
+    ${currentUser.role==="master"
+       ? '<button id="editBtn">Edit profile</button>' : ''}`;
+  $("#logoutBtn").onclick = async ()=>{
+    await fetch(API+"/api/logout",{method:"POST",credentials:"include"});
+    currentUser=null; renderCabinet();
+  };
+  if(currentUser.role==="master"){
+    $("#editBtn").onclick = ()=>{
+      const newSpec = prompt("New specialty", currentUser.specialty||"");
+      if(!newSpec) return;
+      fetch(API+"/api/update_profile",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({specialty:newSpec}),
+        credentials:"include"
+      })
+      .then(r=>r.json()).then(({user})=>{
+        currentUser=user; renderCabinet(); loadMasters();
+      });
+    };
+  }
+}
+
+/* ─── masters list ─── */
 async function loadMasters(filter="all"){
   grid.innerHTML="Loading…";
-  const res  = await fetch(API+"/api/masters");
-  const data = await res.json();
+  const data=await (await fetch(API+"/api/masters")).json();
   const list = filter==="all"?data:data.filter(m=>m.specialty===filter);
   grid.innerHTML="";
   if(!list.length){grid.textContent="Nothing found";return;}
   list.forEach(m=>grid.insertAdjacentHTML("beforeend",`
     <div class="card">
-      <img src="${m.photo}" alt="Master">
-      <h3>${m.name}</h3>
-      <p>${m.specialty}</p>
+      <img src="${m.photo}" alt="Master"><h3>${m.name}</h3><p>${m.specialty}</p>
     </div>`));
 }
-window.addEventListener("DOMContentLoaded",()=>loadMasters());
 
-/* ─── фильтры ─── */
-document.querySelectorAll(".filters button").forEach(btn=>{
-  btn.onclick=()=>loadMasters(btn.dataset.filter);
-});
+/* ─── onload: who am I? ─── */
+(async ()=>{
+  const res=await fetch(API+"/api/me",{credentials:"include"});
+  const data=await res.json();
+  currentUser=data.user||null;
+  renderCabinet(); loadMasters();
+})();
 
-/* ─── модалка ─── */
-const regModal=document.getElementById("regModal");
-document.getElementById("openReg").onclick=()=>regModal.style.display="flex";
-document.getElementById("closeReg").onclick=()=>regModal.style.display="none";
-window.onclick=e=>{if(e.target===regModal)regModal.style.display="none";};
+/* ─── filters ─── */
+$(".filters").onclick = e=>{
+  if(e.target.dataset.filter) loadMasters(e.target.dataset.filter);
+};
 
-/* ─── регистрация ─── */
-document.getElementById("regForm").onsubmit=async e=>{
-  e.preventDefault();
-  const fd=new FormData(e.target);
+/* ─── open modals ─── */
+$("#openReg").onclick = ()=>openModal("#regModal");
+$("#openLog").onclick = ()=>openModal("#logModal");
+document.querySelectorAll(".close").forEach(x=>x.onclick=()=>closeModal(`#${x.dataset.close}Modal`));
 
-  /* 1) если выбран файл, загружаем его */
-  let photoURL="";
-  const file=fd.get("photoFile");
-  if(file && file.size){
+/* ─── registration ─── */
+$("#regForm").onsubmit = async e=>{
+  e.preventDefault(); const fd=new FormData(e.target);
+  let photoURL="",file=fd.get("photoFile");
+  if(file&&file.size){
     const up=new FormData(); up.append("file",file);
-    const upRes=await fetch(API+"/api/upload",{method:"POST",body:up,credentials:"include"});
-    if(upRes.ok) photoURL=(await upRes.json()).url;
-    else {alert("Photo upload failed");return;}
+    const r=await fetch(API+"/api/upload",{method:"POST",body:up,credentials:"include"});
+    if(!r.ok){alert("Upload error");return;}
+    photoURL=(await r.json()).url;
   }
-
-  /* 2) собираем JSON и шлём регистрацию */
-  const json=Object.fromEntries(fd.entries());
-  delete json.photoFile;          // убираем бинарник
-  json.photo=photoURL;            // ссылка (может быть "")
-
-  const res=await fetch(API+"/api/register",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(json),
-    credentials:"include"
-  });
+  const j=Object.fromEntries(fd.entries()); delete j.photoFile; j.photo=photoURL;
+  const res=await fetch(API+"/api/register",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify(j),credentials:"include"});
   if(res.status===201){
-    alert("Registered!");
-    regModal.style.display="none";
-    e.target.reset();
-    loadMasters();
-  }else{
-    const err=await res.json();
-    alert("Error: "+err.error);
-  }
+    currentUser=(await res.json()).user; closeModal("#regModal");
+    renderCabinet(); loadMasters();
+  }else alert("Registration error");
+};
+
+/* ─── login ─── */
+$("#logForm").onsubmit = async e=>{
+  e.preventDefault();
+  const j=Object.fromEntries(new FormData(e.target).entries());
+  const res=await fetch(API+"/api/login",{method:"POST",
+        headers:{"Content-Type":"application/json"},body:JSON.stringify(j),credentials:"include"});
+  if(res.ok){
+    currentUser=(await res.json()).user; closeModal("#logModal");
+    renderCabinet();
+  }else alert("Wrong email or password");
 };
 </script>
 </body>
